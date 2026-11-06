@@ -6,6 +6,7 @@ import { MopDocumentPreview } from './components/MopDocumentPreview';
 import { FormatComparisonModal } from './components/FormatComparisonModal';
 import { TssrViewerModal } from './components/TssrViewerModal';
 import { SAMPLE_ONE_TSSR, SAMPLE_ERICSSON_FTTH } from './data/sampleTssrs';
+import { openTssrInNewTab } from './utils/pdfExtractor';
 import type { TSSRTechnicalSpecs } from './types/mop';
 
 export default function App() {
@@ -70,6 +71,7 @@ export default function App() {
         hasSpecs={specs !== null}
         onOpenFormatGuide={() => setIsFormatGuideOpen(true)}
         onOpenTssrViewer={() => setIsTssrViewerOpen(true)}
+        onOpenTssrInNewTab={() => specs && openTssrInNewTab(specs)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -88,6 +90,7 @@ export default function App() {
             onProceedToDocx={() => setCurrentStep(3)}
             onReset={handleReset}
             onOpenTssrViewer={() => setIsTssrViewerOpen(true)}
+            onOpenTssrInNewTab={() => openTssrInNewTab(specs)}
             onReplaceTssr={handleReplaceTssr}
           />
         )}
@@ -97,6 +100,7 @@ export default function App() {
             specs={specs}
             onBackToEdit={() => setCurrentStep(2)}
             onOpenTssrViewer={() => setIsTssrViewerOpen(true)}
+            onOpenTssrInNewTab={() => openTssrInNewTab(specs)}
           />
         )}
       </main>

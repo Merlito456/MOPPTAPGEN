@@ -17,12 +17,14 @@ interface MopDocumentPreviewProps {
   specs: OfficialMopSpecs;
   onBackToEdit: () => void;
   onOpenTssrViewer?: () => void;
+  onOpenTssrInNewTab?: () => void;
 }
 
 export const MopDocumentPreview: React.FC<MopDocumentPreviewProps> = ({
   specs,
   onBackToEdit,
   onOpenTssrViewer,
+  onOpenTssrInNewTab,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -468,16 +470,16 @@ Implementation Window: ${targetDatetime}
 
                   {/* Interactive Clickable TSSR Attachment Box */}
                   <div
-                    onClick={onOpenTssrViewer}
+                    onClick={onOpenTssrInNewTab || onOpenTssrViewer}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
-                        onOpenTssrViewer?.();
+                        (onOpenTssrInNewTab || onOpenTssrViewer)?.();
                       }
                     }}
                     className="inline-flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-slate-50 hover:bg-red-50/60 border-2 border-dashed border-slate-300 hover:border-red-400 rounded-xl transition-all cursor-pointer group shadow-2xs w-full max-w-xl text-left"
-                    title="Click to open attached signed TSSR"
+                    title="Click to open attached signed TSSR in a new tab"
                   >
                     <div className="relative shrink-0">
                       <img
@@ -508,9 +510,21 @@ Implementation Window: ${targetDatetime}
                           </>
                         )}
                         <span>·</span>
-                        <span className="text-blue-600 group-hover:text-blue-800 font-bold underline flex items-center gap-0.5">
-                          Click to open & view
+                        <span className="text-red-700 group-hover:text-red-900 font-bold underline flex items-center gap-1">
+                          <span>Open in New Tab</span> ↗
                         </span>
+                        {onOpenTssrViewer && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenTssrViewer();
+                            }}
+                            className="text-slate-500 hover:text-slate-800 text-[10px] ml-1 px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 transition-colors"
+                          >
+                            Inspect in Modal
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

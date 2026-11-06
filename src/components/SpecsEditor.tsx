@@ -38,6 +38,7 @@ interface SpecsEditorProps {
   onProceedToDocx: () => void;
   onReset: () => void;
   onOpenTssrViewer?: () => void;
+  onOpenTssrInNewTab?: () => void;
   onReplaceTssr?: (file: File) => void;
 }
 
@@ -47,6 +48,7 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
   onProceedToDocx,
   onReset,
   onOpenTssrViewer,
+  onOpenTssrInNewTab,
   onReplaceTssr,
 }) => {
   const [activeView, setActiveView] = useState<'tapping' | 'advanced'>('tapping');
@@ -216,19 +218,31 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
               {isEricsson ? 'Template: Ericsson / Nokia FTTH' : 'Template: ONE TSSR (Nokia OLT)'}
             </span>
             <span className="text-xs text-slate-400">·</span>
-            {onOpenTssrViewer ? (
-              <button
-                type="button"
-                onClick={onOpenTssrViewer}
-                className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md text-red-700 text-xs font-mono font-medium transition-colors cursor-pointer group shadow-2xs"
-                title="Click to open and view the attached TSSR document"
-              >
-                <img src="/assets/pdf-icon.png" alt="PDF" className="w-3.5 h-3.5 object-contain" />
-                <span className="truncate max-w-[180px] sm:max-w-xs font-bold">{specs.tssrFileName}</span>
-                <span className="text-[10px] bg-red-600 text-white font-sans px-1.5 py-0.2 rounded font-bold uppercase group-hover:bg-red-700">
-                  Open
-                </span>
-              </button>
+            {onOpenTssrInNewTab || onOpenTssrViewer ? (
+              <div className="inline-flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={onOpenTssrInNewTab || onOpenTssrViewer}
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md text-red-700 text-xs font-mono font-medium transition-colors cursor-pointer group shadow-2xs"
+                  title="Click to open attached TSSR document in a new tab"
+                >
+                  <img src="/assets/pdf-icon.png" alt="PDF" className="w-3.5 h-3.5 object-contain" />
+                  <span className="truncate max-w-[180px] sm:max-w-xs font-bold">{specs.tssrFileName}</span>
+                  <span className="text-[10px] bg-red-600 text-white font-sans px-1.5 py-0.2 rounded font-bold uppercase group-hover:bg-red-700 flex items-center gap-0.5">
+                    <span>New Tab</span>
+                  </span>
+                </button>
+                {onOpenTssrViewer && (
+                  <button
+                    type="button"
+                    onClick={onOpenTssrViewer}
+                    className="text-[10px] text-slate-500 hover:text-slate-800 underline transition-colors cursor-pointer"
+                    title="Preview in modal window"
+                  >
+                    (Preview)
+                  </button>
+                )}
+              </div>
             ) : (
               <span className="text-xs text-slate-500 font-mono truncate max-w-xs">
                 TSSR: {specs.tssrFileName}
@@ -355,8 +369,13 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Equipment <span className="text-red-500">*</span>
+                <label className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+                  <span>Equipment / OLT Model <span className="text-red-500">*</span></span>
+                  {specs.solution && (
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Page 1 Solution: "{specs.solution}"
+                    </span>
+                  )}
                 </label>
                 <input
                   type="text"

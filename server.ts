@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { SAMPLE_ONE_TSSR, SAMPLE_ERICSSON_FTTH } from './src/data/sampleTssrs.ts';
-import { parseFileNameMetadata, synthesizeSpecsFromText } from './src/utils/pdfExtractor.ts';
+import { parseFileNameMetadata, synthesizeSpecsFromText, mapSolutionToEquipment } from './src/utils/pdfExtractor.ts';
 import type { OfficialMopSpecs } from './src/types/mop.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,24 +58,28 @@ CRITICAL REQUIREMENT - PAGE 1 GENERAL INFORMATION TABLE:
 Examine the General Information table on the first page:
 - PROJECT (e.g. "FTTH HORIZONTAL")
 - SCOPE (e.g. "NEW BUILD")
-- SOLUTION (e.g. "MF2 – 1 CARD" -> equipment: "Nokia Lightspan MF-2", "DF-16M" -> equipment: "Nokia Lightspan DF-16M", "FX-4" -> "Nokia Lightspan FX-4")
-- SITE NAME (e.g. "KIMADZILCARMENCOT")
-- PLAID: CRITICAL REQUIREMENT - MUST BE EXTRACTED DIRECTLY FROM THE "PLAID" ROW/CELL IN THE FIRST PAGE GENERAL INFORMATION TABLE (e.g. "MIN2183"). Do NOT extract or guess PLAID from the filename, and do NOT use an ID from other pages or old benchmarks.
+- SOLUTION: CRITICAL OLT HARDWARE TYPE - Must be extracted directly from the "SOLUTION" row in the Page 1 General Information table:
+  * "MF2 – 1 CARD" or "MF2 - 1 CARD" or "MF-2" -> equipmentModel MUST be "Nokia Lightspan MF-2", oltLabel MUST be "OLT MF-2".
+  * "DF-16M" or "DF16" -> equipmentModel MUST be "Nokia Lightspan DF-16M", oltLabel MUST be "OLT DF-16M".
+  * "FX-4" or "FX4" -> equipmentModel MUST be "Nokia Lightspan FX-4", oltLabel MUST be "OLT FX-4".
+  Do NOT confuse or output FX-4 if the SOLUTION row says "MF2 – 1 CARD" or "MF-2"!
+- SITE NAME (e.g. "SALUNA" or "KIMADZILCARMENCOT")
+- PLAID: CRITICAL REQUIREMENT - MUST BE EXTRACTED DIRECTLY FROM THE "PLAID" ROW/CELL IN THE FIRST PAGE GENERAL INFORMATION TABLE (e.g. "MIN394" or "MIN2183"). Do NOT extract or guess PLAID from the filename, and do NOT use an ID from other pages or old benchmarks.
 - TERRITORY (e.g. "T7")
 - REGION (e.g. "MINDANAO")
-- SITE ADDRESS (e.g. "CARMEN, COTABATO (NORTH COTABATO)")
-- TOWERCO (e.g. "PHILTOWER")
+- SITE ADDRESS (e.g. "MIDSAYAP, COTABATO (NORTH COTABATO)")
+- TOWERCO (e.g. "FTAP" or "PHILTOWER")
 
 Determine the exact format:
 1. "ONE_TSSR" format (e.g., standard telecom cell site / macro build TSSR like MIN2250 PAGATPATCDOMISOR).
    Output name pattern: "MOP_{SiteName}_{SiteID}.docx"
-2. "ERICSSON_FTTH" format (e.g., FTTH Horizontal Rollout like NOKIA_FTTH HORIZONTAL_KIMADZILCARMENCOT_MIN2183_TSSR).
+2. "ERICSSON_FTTH" format (e.g., FTTH Horizontal Rollout like NOKIA_FTTH HORIZONTAL_SALUNA_MIN394_TSSR).
    Output name pattern: "MOP_POWERTAPPING_FTTH_HORIZONTAL_{Territory}_{SiteName}_{SiteID}.docx"
 
 Extract and populate:
 {
   "format": "ONE_TSSR" or "ERICSSON_FTTH",
-  "plaid": "string (e.g. MIN2183 - MUST BE FROM THE PAGE 1 PLAID ENTRY)",
+  "plaid": "string (e.g. MIN394 - MUST BE FROM THE PAGE 1 PLAID ENTRY)",
   "siteId": "string (same as plaid)",
   "siteName": "string",
   "solution": "string (e.g. MF2 – 1 CARD)",
@@ -130,20 +134,22 @@ Extract and populate:
             baseSpecs.siteName = finalSiteName;
             baseSpecs.site_name = finalSiteName;
           }
-          if (parsed.equipmentModel) {
-            baseSpecs.equipmentModel = parsed.equipmentModel;
-            baseSpecs.equipment = parsed.equipmentModel;
+          if (parsed.solution) {
+            baseSpecs.solution = parsed.solution;
+            // Strict ground truth: Map solution directly to equipment model
+            const mappedEq = mapSolutionToEquipment(parsed.solution);
+            baseSpecs.equipment = mappedEq.equipment;
+            baseSpecs.equipmentModel = mappedEq.equipment;
+            baseSpecs.olt_label_custom = mappedEq.oltLabel;
+          } else if (parsed.equipmentModel) {
+            const mappedEq = mapSolutionToEquipment(parsed.equipmentModel);
+            baseSpecs.equipmentModel = mappedEq.equipment;
+            baseSpecs.equipment = mappedEq.equipment;
+            baseSpecs.olt_label_custom = parsed.oltLabel || mappedEq.oltLabel;
           }
-          if (parsed.oltLabel) {
-            baseSpecs.olt_label_custom = parsed.oltLabel;
-          } else if (baseSpecs.equipment) {
-            baseSpecs.olt_label_custom = /df-?16/i.test(baseSpecs.equipment)
-              ? 'OLT DF-16M'
-              : /fx-?4/i.test(baseSpecs.equipment)
-              ? 'OLT FX-4'
-              : 'OLT MF-2';
+          if (baseSpecs.siteName && baseSpecs.siteId) {
+            baseSpecs.siteLocationSystem = `${baseSpecs.siteName}_${baseSpecs.siteId}`;
           }
-          if (parsed.solution) baseSpecs.solution = parsed.solution;
           if (parsed.territory) baseSpecs.territory = parsed.territory;
           if (parsed.region) baseSpecs.region = parsed.region;
           if (parsed.siteAddress) baseSpecs.siteAddress = parsed.siteAddress;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, FileText, CheckCircle2 } from 'lucide-react';
+import { Zap, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
 
 interface HeaderProps {
   currentStep: 1 | 2 | 3;
@@ -7,6 +7,7 @@ interface HeaderProps {
   hasSpecs: boolean;
   onOpenFormatGuide: () => void;
   onOpenTssrViewer?: () => void;
+  onOpenTssrInNewTab?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   hasSpecs,
   onOpenFormatGuide,
   onOpenTssrViewer,
+  onOpenTssrInNewTab,
 }) => {
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-xs">
@@ -94,16 +96,32 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action / Help & TSSR Viewer button */}
           <div className="flex items-center space-x-2">
-            {hasSpecs && onOpenTssrViewer && (
-              <button
-                type="button"
-                onClick={onOpenTssrViewer}
-                className="text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
-                title="Click to view attached TSSR document"
-              >
-                <img src="/assets/pdf-icon.png" alt="PDF" className="w-3.5 h-3.5 object-contain" />
-                <span className="hidden sm:inline">Attached TSSR</span>
-              </button>
+            {hasSpecs && (
+              <div className="flex items-center rounded-lg border border-red-200 bg-red-50 p-0.5 shadow-2xs">
+                {/* Primary Button: Open in New Tab */}
+                <button
+                  type="button"
+                  onClick={onOpenTssrInNewTab || onOpenTssrViewer}
+                  className="text-xs font-bold text-red-700 hover:text-red-900 hover:bg-red-100/80 px-2.5 py-1 rounded-md flex items-center space-x-1.5 transition-colors cursor-pointer"
+                  title="Click to open attached TSSR in a new tab"
+                >
+                  <img src="/assets/pdf-icon.png" alt="PDF" className="w-3.5 h-3.5 object-contain" />
+                  <span>Open Attached TSSR</span>
+                  <ExternalLink className="w-3 h-3 text-red-600 shrink-0" />
+                </button>
+
+                {/* Secondary Button: In-App Preview */}
+                {onOpenTssrViewer && (
+                  <button
+                    type="button"
+                    onClick={onOpenTssrViewer}
+                    className="text-[11px] text-red-600 hover:text-red-800 hover:bg-red-100/60 px-1.5 py-1 rounded-md transition-colors border-l border-red-200/80"
+                    title="Inspect & preview in modal"
+                  >
+                    Preview
+                  </button>
+                )}
+              </div>
             )}
 
             <button

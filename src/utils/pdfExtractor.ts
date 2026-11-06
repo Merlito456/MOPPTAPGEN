@@ -90,7 +90,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
             const yA = a.transform ? a.transform[5] : 0;
             const yB = b.transform ? b.transform[5] : 0;
             const yDiff = yB - yA;
-            if (Math.abs(yDiff) > 5) return yDiff;
+            if (Math.abs(yDiff) > 7) return yDiff;
             const xA = a.transform ? a.transform[4] : 0;
             const xB = b.transform ? b.transform[4] : 0;
             return xA - xB;
@@ -103,7 +103,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
           for (const item of filtered) {
             const y = item.transform ? item.transform[5] : 0;
             const str = item.str || '';
-            if (currentY === null || Math.abs(currentY - y) <= 5) {
+            if (currentY === null || Math.abs(currentY - y) <= 7) {
               currentLine.push(str);
               if (currentY === null) currentY = y;
             } else {
@@ -134,7 +134,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     // Binary scan fallback
     const uint8 = new Uint8Array(arrayBuffer.slice(0, 1000000));
     let binaryStr = '';
-    for (let i = 0; i < uint8.length; i += 4) {
+    for (let i = 0; i < uint8.length; i++) {
       const charCode = uint8[i];
       if (charCode >= 32 && charCode <= 126) {
         binaryStr += String.fromCharCode(charCode);
@@ -170,45 +170,75 @@ export interface FirstPageGeneralInfo {
  */
 export function mapSolutionToEquipment(solutionStr: string): { equipment: string; oltLabel: string } {
   const norm = (solutionStr || '').toUpperCase().trim();
-  if (norm.includes('MF2') || norm.includes('MF-2')) {
+
+  // If empty or an accidental table header keyword was passed, default cleanly
+  if (!norm || /^(SITE\s*NAME|PROJECT|SCOPE|TERRITORY|REGION|SITE\s*ADDRESS|TOWERCO|PLAID|NEW\s*BUILD|NEW|BUILD|NAME|ID)$/i.test(norm)) {
     return {
       equipment: 'Nokia Lightspan MF-2',
       oltLabel: 'OLT MF-2',
     };
   }
-  if (norm.includes('DF16') || norm.includes('DF-16')) {
+
+  // Nokia Lightspan MF-2: e.g. "MF2 – 1 CARD", "MF2 - 1 CARD", "MF2 – 2 CARD", "MF-2", "MF2", "MF 2"
+  if (norm.includes('MF2') || norm.includes('MF-2') || norm.includes('MF 2')) {
+    return {
+      equipment: 'Nokia Lightspan MF-2',
+      oltLabel: 'OLT MF-2',
+    };
+  }
+
+  // Nokia Lightspan DF-16M: e.g. "DF-16M", "DF16M", "DF-16", "DF16", "DF 16"
+  if (norm.includes('DF16') || norm.includes('DF-16') || norm.includes('DF 16')) {
     return {
       equipment: 'Nokia Lightspan DF-16M',
       oltLabel: 'OLT DF-16M',
     };
   }
-  if (norm.includes('FX4') || norm.includes('FX-4')) {
+
+  // Nokia Lightspan FX-4
+  if (norm.includes('FX4') || norm.includes('FX-4') || norm.includes('FX 4')) {
     return {
       equipment: 'Nokia Lightspan FX-4',
       oltLabel: 'OLT FX-4',
     };
   }
-  if (norm.includes('FX8') || norm.includes('FX-8')) {
+
+  // Nokia Lightspan FX-8
+  if (norm.includes('FX8') || norm.includes('FX-8') || norm.includes('FX 8')) {
     return {
       equipment: 'Nokia Lightspan FX-8',
       oltLabel: 'OLT FX-8',
     };
   }
-  if (norm.includes('FX16') || norm.includes('FX-16')) {
+
+  // Nokia Lightspan FX-16
+  if (norm.includes('FX16') || norm.includes('FX-16') || norm.includes('FX 16')) {
     return {
       equipment: 'Nokia Lightspan FX-16',
       oltLabel: 'OLT FX-16',
     };
   }
-  if (norm.includes('MA5800')) {
+
+  // Huawei SmartAX MA5800
+  if (norm.includes('MA5800') || norm.includes('MA-5800')) {
     return {
       equipment: 'Huawei SmartAX MA5800',
       oltLabel: 'OLT MA5800',
     };
   }
+
+  // If already prefixed with Nokia or Lightspan
+  if (norm.includes('LIGHTSPAN') || norm.includes('NOKIA')) {
+    return {
+      equipment: solutionStr,
+      oltLabel: norm.includes('DF') ? 'OLT DF-16M' : norm.includes('FX') ? 'OLT FX-4' : 'OLT MF-2',
+    };
+  }
+
+  // Default standard for FTTH horizontal
   return {
-    equipment: solutionStr ? `Nokia Lightspan ${solutionStr}` : 'Nokia Lightspan MF-2',
-    oltLabel: solutionStr ? `OLT ${solutionStr}` : 'OLT MF-2',
+    equipment: 'Nokia Lightspan MF-2',
+    oltLabel: 'OLT MF-2',
   };
 }
 
@@ -231,26 +261,50 @@ export function parseFirstPageGeneralInfo(text: string): FirstPageGeneralInfo {
     page1Text = text.slice(0, 6000);
   }
 
-  // 1. SOLUTION (e.g. "MF2 – 1 CARD", "DF-16M", "MF-2", "Nokia Lightspan MF-2", "FX-4")
-  const solRegexes = [
-    /SOLUTION\s*[:\-–]?\s*([A-Za-z0-9_\-\s–/]+?)(?=\s+(?:SITE\s*NAME|PLAID|TERRITORY|REGION|SCOPE|SITE\s*ADDRESS|TOWERCO|PROJECT|\n|$))/i,
-    /SOLUTION\s*[:\-–]\s*([^\n\r]+)/i,
-    /(?:SOLUTION|EQUIPMENT|MODEL)\s*[:\-–]?\s*([A-Za-z0-9_\-\s–/]+)/i,
-  ];
-  for (const reg of solRegexes) {
-    const match = page1Text.match(reg);
-    if (match && match[1]) {
-      const candidate = match[1].trim();
-      if (candidate.length > 0 && candidate.length < 50 && !/^(NEW|SITE|BUILD|YES|NO)$/i.test(candidate)) {
-        result.rawSolution = candidate;
-        break;
+  // 1. SOLUTION & OLT TYPE EXTRACTION (Strictly from Page 1 General Information table)
+  // Strategy A: Targeted search in proximity to "SOLUTION" keyword (handles same-line, next-line, and columnar layouts)
+  const solIdx = page1Text.search(/\bSOLUTION\b/i);
+  if (solIdx !== -1) {
+    const afterSol = page1Text.slice(solIdx, solIdx + 300);
+    // Explicit telecom hardware signature near SOLUTION:
+    // e.g. "MF2 – 1 CARD", "MF2 - 1 CARD", "MF2 – 2 CARD", "MF2", "MF-2", "DF-16M", "FX-4", "FX-8", "MA5800"
+    const hwNearSol = afterSol.match(/\b(MF-?2(?:\s*[-–—−]\s*\d+\s*CARD)?|DF-?16M?|DF-?16\b|FX-?4\b|FX-?8\b|FX-?16\b|MA-?5800)\b/i);
+    if (hwNearSol) {
+      result.rawSolution = hwNearSol[0].trim();
+    } else {
+      // Check for same-line text: "SOLUTION: <value>" or "SOLUTION  <value>"
+      const lineMatch = afterSol.match(/^SOLUTION\s*[:\-–]?\s*([^\r\n\t]+)/i);
+      if (lineMatch && lineMatch[1]) {
+        const candidate = lineMatch[1].trim();
+        if (candidate.length > 0 && candidate.length < 50 && !/^(SITE|PLAID|PROJECT|SCOPE|REGION|TERRITORY|TOWERCO|ADDRESS|NAME|ID|BUILD|NEW)/i.test(candidate)) {
+          result.rawSolution = candidate;
+        }
       }
     }
   }
 
-  // Also check direct occurrences of known telecom hardware signatures on Page 1
+  // Strategy B: If not found near "SOLUTION", check regex across Page 1
   if (!result.rawSolution) {
-    const directMatch = page1Text.match(/\b(MF-?2(?:\s*[-–]\s*\d+\s*CARD)?|DF-?16M?|FX-?[48]|MA5800)\b/i);
+    const solRegexes = [
+      /SOLUTION\s*[:\-–]\s*([^\r\n]+)/i,
+      /SOLUTION\s*[:\-–]?\s*([A-Za-z0-9_\-\s–—−/]+?)(?=\s+(?:SITE\s*NAME|PLAID|TERRITORY|REGION|SCOPE|SITE\s*ADDRESS|TOWERCO|PROJECT|[\r\n]|$))/i,
+    ];
+    for (const reg of solRegexes) {
+      const match = page1Text.match(reg);
+      if (match && match[1]) {
+        const candidate = match[1].trim();
+        if (candidate.length > 0 && candidate.length < 50 && !/^(SITE|PLAID|PROJECT|SCOPE|REGION|TERRITORY|TOWERCO|ADDRESS|NAME|ID|BUILD|NEW)/i.test(candidate)) {
+          result.rawSolution = candidate;
+          break;
+        }
+      }
+    }
+  }
+
+  // Strategy C: Direct scan for explicit "MF2 – 1 CARD" or "MF-2" on Page 1
+  // Prioritize MF-2 and DF-16M because they are the predominant FTTH rollout models
+  if (!result.rawSolution) {
+    const directMatch = page1Text.match(/\b(MF-?2\s*[-–—−]\s*\d+\s*CARD|MF-?2\b|DF-?16M?|MA-?5800|FX-?4\b|FX-?8\b|FX-?16\b)\b/i);
     if (directMatch) {
       result.rawSolution = directMatch[0].trim();
     }
@@ -264,19 +318,38 @@ export function parseFirstPageGeneralInfo(text: string): FirstPageGeneralInfo {
     result.oltLabel = mapped.oltLabel;
   }
 
-  // 2. SITE NAME (e.g. "KIMADZILCARMENCOT" or "PAGATPATCDOMISOR")
+  // 2. SITE NAME (e.g. "SALUNA" or "KIMADZILCARMENCOT" or "PAGATPATCDOMISOR")
   const siteRegexes = [
     /SITE\s*NAME\s*[:\-–]?\s*([A-Za-z0-9_]+)/i,
     /SITE\s*NAME\s*[:\-–]\s*([^\n\r]+)/i,
     /SITE\s*[:\-–]\s*([A-Za-z0-9_]+)/i,
+    /\bSITE\s*NAME\s*[:\-–]?(?:\r?\n|\s{2,})+([A-Za-z0-9_]+)\b/i,
   ];
   for (const reg of siteRegexes) {
     const match = page1Text.match(reg);
     if (match && match[1]) {
       const site = match[1].trim().replace(/[^A-Za-z0-9_]/g, '').toUpperCase();
-      if (site.length >= 4 && !/^(NAME|ID|CODE|SITE|GENERAL|INFORMATION|PLAID)$/i.test(site)) {
+      if (site.length >= 3 && !/^(NAME|ID|CODE|SITE|GENERAL|INFORMATION|PLAID|TERRITORY|REGION|SCOPE|BUILD)$/i.test(site)) {
         result.siteName = site;
         break;
+      }
+    }
+  }
+
+  // Proximity to SITE NAME keyword if still not found
+  if (!result.siteName) {
+    const siteIdx = page1Text.search(/\bSITE\s*NAME\b/i);
+    if (siteIdx !== -1) {
+      const window = page1Text.slice(siteIdx, siteIdx + 120);
+      const m = window.match(/\b([A-Za-z]{4,}[A-Za-z0-9_]*)\b/g);
+      if (m) {
+        for (const word of m) {
+          const upper = word.toUpperCase();
+          if (!/^(SITE|NAME|GENERAL|INFORMATION|PLAID|PROJECT|SCOPE|TERRITORY|REGION|TOWERCO|ADDRESS)$/i.test(upper)) {
+            result.siteName = upper;
+            break;
+          }
+        }
       }
     }
   }
@@ -517,4 +590,97 @@ export function synthesizeSpecsFromText(
   baseSpecs.approver_remarks_images = [];
 
   return baseSpecs;
+}
+
+/**
+ * Opens the uploaded/attached TSSR in a new browser tab.
+ * Uses a Blob URL from dataUrl if available, or renders an official HTML TSSR document blob.
+ */
+export function openTssrInNewTab(specs: OfficialMopSpecs): void {
+  if (specs.tssrFileDataUrl) {
+    try {
+      const parts = specs.tssrFileDataUrl.split(',');
+      const isImage = specs.tssrFileDataUrl.startsWith('data:image/');
+      const mime = parts[0].match(/:(.*?);/)?.[1] || (isImage ? 'image/png' : 'application/pdf');
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    } catch (err) {
+      console.warn('Failed to open TSSR dataUrl in new tab:', err);
+    }
+  }
+
+  // Fallback: Generate an official TSSR summary HTML document and open in new tab
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TSSR - ${specs.site_name || specs.siteName} (${specs.plaid || specs.siteId})</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; background: #f8fafc; margin: 0; }
+    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+    .header { border-bottom: 3px solid #00b0f0; padding-bottom: 12px; margin-bottom: 24px; }
+    h1 { color: #0f172a; margin: 0 0 8px 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0; }
+    .badge { display: inline-block; padding: 4px 10px; background: #ecfdf5; color: #065f46; font-weight: 700; border-radius: 6px; font-size: 11px; border: 1px solid #a7f3d0; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #cbd5e1; padding: 10px 14px; text-align: left; font-size: 13px; }
+    th { background-color: #f1f5f9; font-weight: 700; color: #334155; }
+    tr:nth-child(even) td { background-color: #f8fafc; }
+    .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>TECHNICAL SITE SURVEY REPORT (TSSR)</h1>
+      <p class="subtitle">Reference Document: ${specs.tssrFileName || 'Approved TSSR Proposal'}</p>
+      <span class="badge">APPROVED FOR COMMERCIAL POWER TAPPING</span>
+    </div>
+    <table>
+      <tr><th colspan="2" style="background:#00b0f0;color:#000;">PAGE 1 GENERAL INFORMATION</th></tr>
+      <tr><td style="width:35%;font-weight:600;">PROJECT</td><td>${specs.project || 'FTTH HORIZONTAL'}</td></tr>
+      <tr><td style="font-weight:600;">SCOPE</td><td>${specs.scope || 'NEW BUILD'}</td></tr>
+      <tr><td style="font-weight:600;">SOLUTION (OLT MODEL)</td><td><strong>${specs.solution || specs.equipment}</strong> (${specs.olt_label_custom})</td></tr>
+      <tr><td style="font-weight:600;">SITE NAME</td><td><strong>${specs.site_name || specs.siteName}</strong></td></tr>
+      <tr><td style="font-weight:600;">PLAID / SITE ID</td><td><strong style="color:#b91c1c;">${specs.plaid || specs.siteId}</strong></td></tr>
+      <tr><td style="font-weight:600;">TERRITORY</td><td>${specs.territory || 'T7'}</td></tr>
+      <tr><td style="font-weight:600;">REGION</td><td>${specs.region || 'MINDANAO'}</td></tr>
+      <tr><td style="font-weight:600;">SITE ADDRESS</td><td>${specs.siteAddress || 'Survey Location Verified'}</td></tr>
+      <tr><td style="font-weight:600;">TOWERCO</td><td>${specs.towerco || 'PHILTOWER'}</td></tr>
+      <tr><th colspan="2">POWER TAPPING SPECIFICATIONS</th></tr>
+      <tr><td style="font-weight:600;">Rectifier System</td><td>${specs.rs_entries?.[0]?.name || 'ELTEK Flatpack 1'}</td></tr>
+      <tr><td style="font-weight:600;">Breaker Assignment</td><td>Main: ${specs.rs_entries?.[0]?.load || 'F1'} (${specs.rs_entries?.[0]?.ampere || '16A'}) | RDNT: ${specs.rs_entries?.[0]?.rdnt_load || 'F2'} (${specs.rs_entries?.[0]?.rdnt_ampere || '16A'})</td></tr>
+      <tr><td style="font-weight:600;">Prepared / Surveyed By</td><td>${specs.prepared_by} (${specs.position})</td></tr>
+      <tr><td style="font-weight:600;">Target Date Window</td><td>${specs.target_datetime}</td></tr>
+    </table>
+    <div class="footer">
+      MOP Powertapping Generator · Section 14 Official Supporting Document
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
