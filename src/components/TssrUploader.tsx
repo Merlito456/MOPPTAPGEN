@@ -109,10 +109,10 @@ export const TssrUploader: React.FC<TssrUploaderProps> = ({
         return;
       }
 
-      // Otherwise query backend with a strict 3.5s timeout for AI refinement
+      // Otherwise query backend for AI refinement with 2 RS analysis
       setProgressStage(3);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 7500);
 
       try {
         const response = await fetch('/api/extract-tssr', {
@@ -122,7 +122,7 @@ export const TssrUploader: React.FC<TssrUploaderProps> = ({
           body: JSON.stringify({
             fileName: file.name,
             mimeType: file.type || 'application/pdf',
-            extractedText: textContent.slice(0, 15000),
+            extractedText: textContent.slice(0, 60000),
             formatHint: selectedFormat,
           }),
         });

@@ -11,8 +11,16 @@ export interface RectifierEntry {
   ampere: string; // e.g. "10A" or "16A"
   rdnt_load: string; // e.g. "F9"
   rdnt_ampere: string; // e.g. "10A"
-  load_img_dataUrl?: string; // base64 dataUrl
-  existing_img_dataUrl?: string; // base64 dataUrl
+  load_img_dataUrl?: string; // base64 dataUrl (primary/first photo)
+  existing_img_dataUrl?: string; // base64 dataUrl (primary/first photo)
+  load_images?: string[]; // array of base64 dataUrls (supports multiple photos)
+  existing_images?: string[]; // array of base64 dataUrls (supports multiple photos)
+}
+
+export interface AdditionalPhoto {
+  id: string;
+  title: string;
+  dataUrl: string;
 }
 
 export interface OfficialMopSpecs {
@@ -38,12 +46,17 @@ export interface OfficialMopSpecs {
   // Power Tapping Configuration
   total_rectifiers: 1 | 2;
   tapping_mode: TappingMode;
+  detected_2_rs?: boolean; // Set true when TSSR analysis detected 2 RS on site
+  rs_detection_notes?: string; // Explanation of what was detected in TSSR
 
   // RS1 and RS2 Rectifier Details & Images
   rs_entries: RectifierEntry[];
 
   // TSSR Approver Remarks Photos on Tapping Point Section
   approver_remarks_images?: string[]; // base64 dataUrls (supports multiple photos)
+
+  // Additional Photo Attachments whenever necessary
+  additional_photos?: AdditionalPhoto[];
 
   // Supporting Document
   tssrFileName: string;

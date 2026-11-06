@@ -540,8 +540,99 @@ export async function generateMopDocxBlob(data: OfficialMopSpecs): Promise<Blob>
     }
   }
 
-  // 4. Update Images Placeholders in Section 2 and Section 20
+  // 4. Update Images Placeholders in Section 2 and Section 20 (Multiple Photos Support)
   let rsLoadAnchorP: any = null;
+
+  // Helper to extract clean array of image data URLs
+  const getImagesList = (images?: string[], singleDataUrl?: string): string[] => {
+    if (Array.isArray(images) && images.length > 0) {
+      return images.filter((img) => Boolean(img && img.trim()));
+    }
+    if (singleDataUrl && singleDataUrl.trim()) {
+      return [singleDataUrl.trim()];
+    }
+    return [];
+  };
+
+  const rs1LoadImgs = getImagesList(rs1.load_images, rs1.load_img_dataUrl);
+  const rs1ExistImgs = getImagesList(rs1.existing_images, rs1.existing_img_dataUrl);
+  const rs2LoadImgs = getImagesList(rs2.load_images, rs2.load_img_dataUrl);
+  const rs2ExistImgs = getImagesList(rs2.existing_images, rs2.existing_img_dataUrl);
+
+  const insertMultiImagesIntoParagraph = (
+    targetP: any,
+    imageList: string[],
+    baseName: string,
+    labelTitle: string,
+    startDocPrId: number
+  ) => {
+    if (imageList.length === 0) {
+      setParagraphText(doc, targetP, '');
+      return;
+    }
+
+    // Insert first image into targetP
+    const relIdFirst = attachImage(imageList[0], `${baseName}_1`);
+    insertImageDrawingIntoParagraph(doc, targetP, relIdFirst, startDocPrId, `${labelTitle} 1`);
+
+    // If multiple images, append subsequent images and captions right after targetP
+    if (imageList.length > 1 && targetP.parentNode) {
+      const parent = targetP.parentNode;
+      let lastEl = targetP;
+
+      for (let i = 1; i < imageList.length; i++) {
+        const nextImgDataUrl = imageList[i];
+        const nextRelId = attachImage(nextImgDataUrl, `${baseName}_${i + 1}`);
+
+        // Image paragraph
+        const nextImgP = doc.createElement('w:p');
+        insertImageDrawingIntoParagraph(doc, nextImgP, nextRelId, startDocPrId + i, `${labelTitle} ${i + 1}`);
+
+        if (lastEl.nextSibling) {
+          parent.insertBefore(nextImgP, lastEl.nextSibling);
+        } else {
+          parent.appendChild(nextImgP);
+        }
+        lastEl = nextImgP;
+
+        // Caption paragraph
+        const nextCapP = doc.createElement('w:p');
+        const capPPr = doc.createElement('w:pPr');
+        const capSpacing = doc.createElement('w:spacing');
+        capSpacing.setAttribute('w:before', '10');
+        capSpacing.setAttribute('w:after', '40');
+        capPPr.appendChild(capSpacing);
+
+        const capJc = doc.createElement('w:jc');
+        capJc.setAttribute('w:val', 'center');
+        capPPr.appendChild(capJc);
+        nextCapP.appendChild(capPPr);
+
+        const capR = doc.createElement('w:r');
+        const capRPr = doc.createElement('w:rPr');
+        const capFont = doc.createElement('w:rFonts');
+        capFont.setAttribute('w:ascii', 'Calibri');
+        capRPr.appendChild(capFont);
+        capRPr.appendChild(doc.createElement('w:i'));
+        const capSz = doc.createElement('w:sz');
+        capSz.setAttribute('w:val', '18'); // 9pt
+        capRPr.appendChild(capSz);
+        capR.appendChild(capRPr);
+
+        const capT = doc.createElement('w:t');
+        capT.textContent = `${labelTitle} (Photo ${i + 1} of ${imageList.length})`;
+        capR.appendChild(capT);
+        nextCapP.appendChild(capR);
+
+        if (lastEl.nextSibling) {
+          parent.insertBefore(nextCapP, lastEl.nextSibling);
+        } else {
+          parent.appendChild(nextCapP);
+        }
+        lastEl = nextCapP;
+      }
+    }
+  };
 
   for (const p of paras) {
     const txt = getParagraphText(p);
@@ -549,36 +640,20 @@ export async function generateMopDocxBlob(data: OfficialMopSpecs): Promise<Blob>
     // RS1 Load Schedule Image
     if (/RS1\s*[Ll]oad\s*schedule\s*image/i.test(txt)) {
       rsLoadAnchorP = p;
-      if (rs1.load_img_dataUrl) {
-        const relId = attachImage(rs1.load_img_dataUrl, 'rs1_load');
-        insertImageDrawingIntoParagraph(doc, p, relId, 501, 'RS1 Load Schedule');
-      } else {
-        setParagraphText(doc, p, '');
-      }
+      insertMultiImagesIntoParagraph(p, rs1LoadImgs, 'rs1_load', 'RS1 Load Schedule', 501);
     }
 
     // RS1 Existing Rectifier Photo
     if (/RS1\s*EXISTING\s*IMAGE/i.test(txt)) {
-      if (rs1.existing_img_dataUrl) {
-        const relId = attachImage(rs1.existing_img_dataUrl, 'rs1_exist');
-        insertImageDrawingIntoParagraph(doc, p, relId, 502, 'RS1 Existing Rectifier');
-      } else {
-        setParagraphText(doc, p, '');
-      }
+      insertMultiImagesIntoParagraph(p, rs1ExistImgs, 'rs1_exist', 'RS1 Existing Rectifier', 520);
     }
 
     // RS2 Load Schedule Image
     if (/RS2\s*[Ll]oad\s*schedule\s*image/i.test(txt)) {
       if (show_rs2_section) {
         rsLoadAnchorP = p;
-        if (rs2.load_img_dataUrl) {
-          const relId = attachImage(rs2.load_img_dataUrl, 'rs2_load');
-          insertImageDrawingIntoParagraph(doc, p, relId, 503, 'RS2 Load Schedule');
-        } else {
-          setParagraphText(doc, p, '');
-        }
+        insertMultiImagesIntoParagraph(p, rs2LoadImgs, 'rs2_load', 'RS2 Load Schedule', 540);
       } else {
-        // Clear unused placeholder safely so it leaves zero empty vertical space
         setParagraphText(doc, p, '');
       }
     }
@@ -586,14 +661,8 @@ export async function generateMopDocxBlob(data: OfficialMopSpecs): Promise<Blob>
     // RS2 Existing Rectifier Photo
     if (/RS2\s*EXISTING\s*IMAGE/i.test(txt)) {
       if (show_rs2_section) {
-        if (rs2.existing_img_dataUrl) {
-          const relId = attachImage(rs2.existing_img_dataUrl, 'rs2_exist');
-          insertImageDrawingIntoParagraph(doc, p, relId, 504, 'RS2 Existing Rectifier');
-        } else {
-          setParagraphText(doc, p, '');
-        }
+        insertMultiImagesIntoParagraph(p, rs2ExistImgs, 'rs2_exist', 'RS2 Existing Rectifier', 560);
       } else {
-        // Clear unused placeholder safely so it leaves zero empty vertical space
         setParagraphText(doc, p, '');
       }
     }
@@ -654,7 +723,6 @@ export async function generateMopDocxBlob(data: OfficialMopSpecs): Promise<Blob>
       lastInserted = imgP;
 
       // Caption paragraph
-      // NOTE: In ECMA-376 CT_PPr schema, w:spacing MUST precede w:jc
       const capP = doc.createElement('w:p');
       const capPPr = doc.createElement('w:pPr');
       const capSpacing = doc.createElement('w:spacing');
@@ -689,6 +757,74 @@ export async function generateMopDocxBlob(data: OfficialMopSpecs): Promise<Blob>
         parentCell.appendChild(capP);
       }
       lastInserted = capP;
+    }
+  }
+
+  // 4c. ADDITIONAL PHOTO ATTACHMENTS (whenever provided by engineer)
+  const additionalPhotos = (data.additional_photos || []).filter((p) => Boolean(p && p.dataUrl && p.dataUrl.trim()));
+  if (additionalPhotos.length > 0 && rsLoadAnchorP && rsLoadAnchorP.parentNode) {
+    const parentCell = rsLoadAnchorP.parentNode;
+
+    // Header paragraph for Additional Photos
+    const addHeaderP = doc.createElement('w:p');
+    const ahpPr = doc.createElement('w:pPr');
+    const ahpSpacing = doc.createElement('w:spacing');
+    ahpSpacing.setAttribute('w:before', '140');
+    ahpSpacing.setAttribute('w:after', '40');
+    ahpPr.appendChild(ahpSpacing);
+    addHeaderP.appendChild(ahpPr);
+
+    const ahr = doc.createElement('w:r');
+    const ahrPr = doc.createElement('w:rPr');
+    const ahrFont = doc.createElement('w:rFonts');
+    ahrFont.setAttribute('w:ascii', 'Calibri');
+    ahrPr.appendChild(ahrFont);
+    ahrPr.appendChild(doc.createElement('w:b'));
+    const ahsz = doc.createElement('w:sz');
+    ahsz.setAttribute('w:val', '22'); // 11pt
+    ahrPr.appendChild(ahsz);
+    ahr.appendChild(ahrPr);
+    const aht = doc.createElement('w:t');
+    aht.textContent = 'ADDITIONAL SITE & POWER TAPPING PHOTO ATTACHMENTS:';
+    ahr.appendChild(aht);
+    addHeaderP.appendChild(ahr);
+
+    parentCell.appendChild(addHeaderP);
+
+    for (let idx = 0; idx < additionalPhotos.length; idx++) {
+      const item = additionalPhotos[idx];
+      const relId = attachImage(item.dataUrl, `add_photo_${idx + 1}`);
+
+      const imgP = doc.createElement('w:p');
+      insertImageDrawingIntoParagraph(doc, imgP, relId, 700 + idx, item.title || `Additional Photo ${idx + 1}`);
+      parentCell.appendChild(imgP);
+
+      const capP = doc.createElement('w:p');
+      const capPPr = doc.createElement('w:pPr');
+      const capSpacing = doc.createElement('w:spacing');
+      capSpacing.setAttribute('w:before', '10');
+      capSpacing.setAttribute('w:after', '50');
+      capPPr.appendChild(capSpacing);
+      const capJc = doc.createElement('w:jc');
+      capJc.setAttribute('w:val', 'center');
+      capPPr.appendChild(capJc);
+      capP.appendChild(capPPr);
+
+      const capR = doc.createElement('w:r');
+      const capRPr = doc.createElement('w:rPr');
+      const capFont = doc.createElement('w:rFonts');
+      capFont.setAttribute('w:ascii', 'Calibri');
+      capRPr.appendChild(capFont);
+      capRPr.appendChild(doc.createElement('w:i'));
+      const capSz = doc.createElement('w:sz');
+      capSz.setAttribute('w:val', '18'); // 9pt
+      capRPr.appendChild(capSz);
+      capR.appendChild(capRPr);
+      const capT = doc.createElement('w:t');
+      capT.textContent = `${item.title || `Site Photo ${idx + 1}`} (Attachment ${idx + 1} of ${additionalPhotos.length})`;
+      capR.appendChild(capT);
+      capP.appendChild(capR);
+      parentCell.appendChild(capP);
     }
   }
 

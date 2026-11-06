@@ -70,7 +70,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
       });
 
       const pdf = await loadingTask.promise;
-      const maxPages = Math.min(pdf.numPages, 10);
+      const maxPages = Math.min(pdf.numPages, 45);
       const textChunks: string[] = [];
 
       for (let i = 1; i <= maxPages; i++) {
@@ -551,30 +551,96 @@ export function synthesizeSpecsFromText(
     baseSpecs.generatedMopFileName = `MOP_${siteName}_${siteId}.docx`;
   }
 
-  // Detect Rectifier system if mentioned in text
-  if (/ELTEK/i.test(extractedText)) {
-    baseSpecs.rectifierSystem = 'Eltek Flatpack 1';
-    if (baseSpecs.rs_entries.length > 0) baseSpecs.rs_entries[0].name = 'Eltek Flatpack 1';
-  } else if (/VERTIV|EMERSON|NETSURE/i.test(extractedText)) {
-    baseSpecs.rectifierSystem = 'Vertiv NetSure 1';
-    if (baseSpecs.rs_entries.length > 0) baseSpecs.rs_entries[0].name = 'Vertiv NetSure 1';
-  } else if (/DELTA/i.test(extractedText)) {
-    baseSpecs.rectifierSystem = 'Delta DPR 1';
-    if (baseSpecs.rs_entries.length > 0) baseSpecs.rs_entries[0].name = 'Delta DPR 1';
-  } else if (/HUAWEI/i.test(extractedText)) {
-    baseSpecs.rectifierSystem = 'Huawei TP48200B';
-    if (baseSpecs.rs_entries.length > 0) baseSpecs.rs_entries[0].name = 'Huawei TP48200B';
+  // Ensure baseSpecs has at least 2 RS entries available
+  if (!baseSpecs.rs_entries || baseSpecs.rs_entries.length < 2) {
+    baseSpecs.rs_entries = [
+      baseSpecs.rs_entries?.[0] || {
+        name: 'Eltek Flatpack 1',
+        load: 'F1',
+        ampere: '16A',
+        rdnt_load: 'F2',
+        rdnt_ampere: '16A',
+      },
+      baseSpecs.rs_entries?.[1] || {
+        name: 'Eltek Flatpack 2',
+        load: '',
+        ampere: '',
+        rdnt_load: '',
+        rdnt_ampere: '',
+      },
+    ];
   }
 
-  // If specific fuses or rectifiers detected in text
-  const fuseMatches = extractedText.match(/\b(F\d+|L\d+)\b/g);
-  if (fuseMatches && fuseMatches.length > 0 && baseSpecs.rs_entries.length > 0) {
-    baseSpecs.fuseMain = fuseMatches[0];
-    baseSpecs.rs_entries[0].load = fuseMatches[0];
-    if (fuseMatches.length > 1) {
-      baseSpecs.fuseRedundant = fuseMatches[1];
-      baseSpecs.rs_entries[0].rdnt_load = fuseMatches[1];
-      baseSpecs.tapping_mode = 'Main + RDNT – Same Rectifier';
+  // --- RECTIFIER SYSTEMS (RS) & 2 RS HEURISTIC DETECTION ---
+  // Detect primary rectifier brand / system
+  let detectedBrand = 'Eltek Flatpack';
+  if (/ELTEK/i.test(extractedText)) {
+    detectedBrand = 'Eltek Flatpack';
+  } else if (/VERTIV|EMERSON|NETSURE/i.test(extractedText)) {
+    detectedBrand = 'Vertiv NetSure';
+  } else if (/DELTA/i.test(extractedText)) {
+    detectedBrand = 'Delta DPR';
+  } else if (/HUAWEI/i.test(extractedText)) {
+    detectedBrand = 'Huawei TP48200B';
+  } else if (/ZTE/i.test(extractedText)) {
+    detectedBrand = 'ZTE ZXDU';
+  }
+
+  // Check for 2 RS presence in TSSR:
+  // 1. Explicit RS2 / Rectifier 2 keywords
+  const rs2ExplicitMatch = /\b(?:RS\s*2|RS2|RECTIFIER\s*2|RECTIFIER\s*SYSTEM\s*2|DCPS\s*2|DCPS2|REC\s*2|RECT\s*2|RECTIFIER#2|CABINET\s*2)\b/i.test(extractedText);
+  // 2. Count phrases like "2 Rectifiers", "Two Rectifiers", "Total Rectifiers: 2"
+  const twoRectifiersCountMatch = /\b(?:TOTAL\s*(?:NO\.?\s*OF\s*)?RECTIFIERS?|NO\.?\s*OF\s*RECTIFIERS?|NUMBER\s*OF\s*RECTIFIERS?)\s*[:\-–]?\s*2\b/i.test(extractedText) ||
+    /\b(?:2|TWO)\s*(?:EXISTING\s*)?(?:RECTIFIERS?|RECTIFIER\s*SYSTEMS?|DCPS|RS)\b/i.test(extractedText);
+  // 3. Co-occurrence of RS1 and RS2 in same document
+  const rs1AndRs2Match = /\b(?:RS\s*1|RECTIFIER\s*1|DCPS\s*1)\b[\s\S]{1,2500}\b(?:RS\s*2|RECTIFIER\s*2|DCPS\s*2)\b/i.test(extractedText);
+  // 4. Photos / Schedule for Rectifier 2
+  const rs2PhotoOrSchedule = /\b(?:EXISTING\s*RECTIFIER\s*2|LOAD\s*SCHEDULE\s*(?:FOR\s*)?(?:RS\s*2|RECTIFIER\s*2)|RECTIFIER\s*2\s*LOAD|RS\s*2\s*LOAD)\b/i.test(extractedText);
+
+  const has2Rectifiers = rs2ExplicitMatch || twoRectifiersCountMatch || rs1AndRs2Match || rs2PhotoOrSchedule;
+
+  if (has2Rectifiers) {
+    baseSpecs.total_rectifiers = 2;
+    baseSpecs.detected_2_rs = true;
+    baseSpecs.rs_detection_notes = 'Detected 2 Rectifier Systems (RS1 & RS2) in TSSR survey.';
+    baseSpecs.rs_entries[0].name = `${detectedBrand} 1`;
+    baseSpecs.rs_entries[1].name = `${detectedBrand} 2`;
+    baseSpecs.rectifierSystem = `${detectedBrand} 1`;
+  } else {
+    baseSpecs.total_rectifiers = 1;
+    baseSpecs.detected_2_rs = false;
+    baseSpecs.rs_entries[0].name = `${detectedBrand} 1`;
+    baseSpecs.rectifierSystem = `${detectedBrand} 1`;
+  }
+
+  // Detect separate tapping vs same rectifier tapping
+  // e.g. "Main ... RS1 ... RDNT ... RS2" or "RS1 (MAIN) / RS2 (RDNT)" or "SEPARATE RECTIFIERS"
+  const separateTappingMatch =
+    /\b(?:MAIN|TAP\s*1)[\s\S]{1,120}(?:RS\s*1|RECTIFIER\s*1)[\s\S]{1,250}(?:RDNT|REDUNDANT|TAP\s*2)[\s\S]{1,120}(?:RS\s*2|RECTIFIER\s*2)\b/i.test(extractedText) ||
+    /\b(?:RS\s*1|RECTIFIER\s*1)[\s\S]{1,80}(?:MAIN)[\s\S]{1,250}(?:RS\s*2|RECTIFIER\s*2)[\s\S]{1,80}(?:RDNT|REDUNDANT)\b/i.test(extractedText) ||
+    /\b(?:SEPARATE\s*RECTIFIERS?|SEPARATE\s*RS)\b/i.test(extractedText);
+
+  if (has2Rectifiers && separateTappingMatch) {
+    baseSpecs.tapping_mode = 'Main + RDNT – Separate Rectifiers';
+  } else {
+    baseSpecs.tapping_mode = 'Main + RDNT – Same Rectifier';
+  }
+
+  // Fuses extraction: search for F1-F64 or L1-L64
+  const fuseMatches = extractedText.match(/\b([FL]\d{1,2})\b/g);
+  if (fuseMatches && fuseMatches.length > 0) {
+    const uniqueFuses = Array.from(new Set(fuseMatches));
+    baseSpecs.fuseMain = uniqueFuses[0];
+    baseSpecs.rs_entries[0].load = uniqueFuses[0];
+
+    if (uniqueFuses.length > 1) {
+      if (baseSpecs.tapping_mode === 'Main + RDNT – Separate Rectifiers') {
+        baseSpecs.rs_entries[1].load = uniqueFuses[1];
+        baseSpecs.fuseRedundant = uniqueFuses[1];
+      } else {
+        baseSpecs.rs_entries[0].rdnt_load = uniqueFuses[1];
+        baseSpecs.fuseRedundant = uniqueFuses[1];
+      }
     }
   }
 
@@ -588,6 +654,7 @@ export function synthesizeSpecsFromText(
   // Set date & remarks
   baseSpecs.dateApproved = new Date().toISOString().split('T')[0];
   baseSpecs.approver_remarks_images = [];
+  baseSpecs.additional_photos = [];
 
   return baseSpecs;
 }

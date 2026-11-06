@@ -287,12 +287,18 @@ export const TssrViewerModal: React.FC<TssrViewerModalProps> = ({
                     </div>
 
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Proposed Tapping Point</span>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                        {specs.total_rectifiers === 2 ? 'Proposed Tapping (2 RS)' : 'Proposed Tapping Point'}
+                      </span>
                       <strong className="text-slate-900 block truncate">
-                        {specs.rs_entries[0]?.name || 'ELTEK Flatpack 1'}
+                        {specs.total_rectifiers === 2
+                          ? `${specs.rs_entries[0]?.name || 'RS1'} & ${specs.rs_entries[1]?.name || 'RS2'}`
+                          : (specs.rs_entries[0]?.name || 'ELTEK Flatpack 1')}
                       </strong>
                       <span className="text-slate-600 block text-[11px]">
-                        Main: {specs.rs_entries[0]?.load || 'F16'} | RDNT: {specs.rs_entries[0]?.rdnt_load || 'F17'}
+                        {specs.tapping_mode === 'Main + RDNT – Separate Rectifiers'
+                          ? `RS1 Main: ${specs.rs_entries[0]?.load || 'F1'} | RS2 RDNT: ${specs.rs_entries[1]?.load || 'L6'}`
+                          : `Main: ${specs.rs_entries[0]?.load || 'F16'} | RDNT: ${specs.rs_entries[0]?.rdnt_load || 'F17'}`}
                       </span>
                     </div>
                   </div>

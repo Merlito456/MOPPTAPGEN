@@ -119,6 +119,29 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
     updateField('approver_remarks_images', updated);
   };
 
+  const additionalPhotos = specs.additional_photos || [];
+
+  const handleAddAdditionalPhoto = () => {
+    const newPhoto = {
+      id: `photo_${Date.now()}`,
+      title: `Site Survey Photo #${additionalPhotos.length + 1}`,
+      dataUrl: '',
+    };
+    updateField('additional_photos', [...additionalPhotos, newPhoto]);
+  };
+
+  const handleUpdateAdditionalPhoto = (idx: number, partial: Partial<{ title: string; dataUrl: string }>) => {
+    const updated = [...additionalPhotos];
+    updated[idx] = { ...updated[idx], ...partial };
+    updateField('additional_photos', updated);
+  };
+
+  const handleRemoveAdditionalPhoto = (idx: number) => {
+    const updated = [...additionalPhotos];
+    updated.splice(idx, 1);
+    updateField('additional_photos', updated);
+  };
+
   const updateRsEntry = (index: number, partial: Partial<RectifierEntry>) => {
     const newEntries = [...rs_entries];
     newEntries[index] = { ...newEntries[index], ...partial };
@@ -528,12 +551,58 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
 
           {/* Section: Power Tapping Configuration */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Power Tapping Configuration</h3>
-              <p className="text-xs text-slate-500">
-                Number of rectifiers present on site and breaker tapping architecture.
-              </p>
+            <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Power Tapping Configuration</h3>
+                <p className="text-xs text-slate-500">
+                  Number of rectifiers present on site and breaker tapping architecture.
+                </p>
+              </div>
+              {specs.total_rectifiers === 2 ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-800 rounded-lg text-xs font-semibold border border-purple-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                  <span>2 RS Detected on Site</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleTotalRectifiersChange(2)}
+                  className="text-xs text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg font-semibold transition-colors self-start sm:self-auto cursor-pointer"
+                >
+                  + Site has 2 RS? Enable RS2
+                </button>
+              )}
             </div>
+
+            {/* 2 RS Detected Alert Banner */}
+            {specs.total_rectifiers === 2 && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 flex items-start sm:items-center justify-between gap-3 text-xs text-purple-950">
+                <div className="flex items-start sm:items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-purple-700 mt-0.5 sm:mt-0 font-bold text-xs">
+                    2RS
+                  </div>
+                  <div>
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>2 Rectifier Systems (RS1 & RS2) Active</span>
+                      <span className="text-[10px] bg-purple-200/80 text-purple-900 px-1.5 py-0.2 rounded font-mono">
+                        {specs.tapping_mode}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-purple-800 mt-0.5">
+                      {specs.rs_detection_notes || 'TSSR contains survey records for 2 Rectifiers on this site.'}{' '}
+                      Both RS1 and RS2 are configured below with photos and load schedules.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTotalRectifiersChange(1)}
+                  className="text-[11px] font-semibold text-purple-700 hover:text-purple-950 bg-white hover:bg-purple-100/70 px-2.5 py-1 rounded-lg border border-purple-300 shrink-0 transition-colors cursor-pointer"
+                >
+                  Switch to 1 RS
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Total Rectifiers */}
@@ -725,10 +794,13 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
                     {/* Right: RS1 Load Schedule Image */}
                     <div>
                       <ImageInputWidget
-                        label="RS1 Load Schedule Image"
-                        subLabel="Replaces {{RS1 Load schedule image}} in MOP"
+                        label="RS1 Load Schedule Image(s)"
+                        subLabel="Replaces {{RS1 Load schedule image}} in MOP (multiple photos supported)"
                         imageDataUrl={rs1.load_img_dataUrl}
+                        images={rs1.load_images || (rs1.load_img_dataUrl ? [rs1.load_img_dataUrl] : [])}
                         onChange={(dataUrl) => updateRsEntry(0, { load_img_dataUrl: dataUrl })}
+                        onChangeImages={(imgs) => updateRsEntry(0, { load_images: imgs, load_img_dataUrl: imgs[0] || undefined })}
+                        allowMultiple={true}
                       />
                     </div>
                   </div>
@@ -736,10 +808,13 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
                   {/* RS1 Existing Rectifier Photo */}
                   <div className="pt-2 border-t border-slate-100">
                     <ImageInputWidget
-                      label="RS1 Existing Rectifier Photo"
-                      subLabel="Replaces {{RS1 EXISTING IMAGE}} in MOP"
+                      label="RS1 Existing Rectifier Photo(s)"
+                      subLabel="Replaces {{RS1 EXISTING IMAGE}} in MOP (multiple photos supported)"
                       imageDataUrl={rs1.existing_img_dataUrl}
+                      images={rs1.existing_images || (rs1.existing_img_dataUrl ? [rs1.existing_img_dataUrl] : [])}
                       onChange={(dataUrl) => updateRsEntry(0, { existing_img_dataUrl: dataUrl })}
+                      onChangeImages={(imgs) => updateRsEntry(0, { existing_images: imgs, existing_img_dataUrl: imgs[0] || undefined })}
+                      allowMultiple={true}
                     />
                   </div>
                 </div>
@@ -835,10 +910,13 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
                       {/* Right: RS2 Load Schedule Image */}
                       <div>
                         <ImageInputWidget
-                          label="RS2 Load Schedule Image"
-                          subLabel="Replaces {{RS2 Load schedule image}} in MOP"
+                          label="RS2 Load Schedule Image(s)"
+                          subLabel="Replaces {{RS2 Load schedule image}} in MOP (multiple photos supported)"
                           imageDataUrl={rs2.load_img_dataUrl}
+                          images={rs2.load_images || (rs2.load_img_dataUrl ? [rs2.load_img_dataUrl] : [])}
                           onChange={(dataUrl) => updateRsEntry(1, { load_img_dataUrl: dataUrl })}
+                          onChangeImages={(imgs) => updateRsEntry(1, { load_images: imgs, load_img_dataUrl: imgs[0] || undefined })}
+                          allowMultiple={true}
                         />
                       </div>
                     </div>
@@ -846,10 +924,13 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
                     {/* RS2 Existing Rectifier Photo */}
                     <div className="pt-2 border-t border-slate-100">
                       <ImageInputWidget
-                        label="RS2 Existing Rectifier Photo"
-                        subLabel="Replaces {{RS2 EXISTING IMAGE}} in MOP"
+                        label="RS2 Existing Rectifier Photo(s)"
+                        subLabel="Replaces {{RS2 EXISTING IMAGE}} in MOP (multiple photos supported)"
                         imageDataUrl={rs2.existing_img_dataUrl}
+                        images={rs2.existing_images || (rs2.existing_img_dataUrl ? [rs2.existing_img_dataUrl] : [])}
                         onChange={(dataUrl) => updateRsEntry(1, { existing_img_dataUrl: dataUrl })}
+                        onChangeImages={(imgs) => updateRsEntry(1, { existing_images: imgs, existing_img_dataUrl: imgs[0] || undefined })}
+                        allowMultiple={true}
                       />
                     </div>
                   </div>
@@ -940,6 +1021,96 @@ export const SpecsEditor: React.FC<SpecsEditorProps> = ({
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>+ Add Another Photo</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section: Additional Photo Attachments (Whenever Necessary) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Additional Photo Attachments (Whenever Necessary)
+                  </h3>
+                  <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">
+                    Flexible Photos
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Attach any additional site photos whenever necessary (e.g. DCDU, grounding busbar, cable tray routing, battery bank, or general site views).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddAdditionalPhoto}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs shrink-0 self-start sm:self-auto cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Photo Attachment</span>
+              </button>
+            </div>
+
+            {additionalPhotos.length === 0 ? (
+              <div className="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                <p className="text-xs text-slate-600 font-medium mb-1">
+                  No additional photo attachments added.
+                </p>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  If the site survey includes special photos (e.g. grounding bar, power cabinet overview, or cable ladder), you can upload them here.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAddAdditionalPhoto}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>+ Attach Photo</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {additionalPhotos.map((item, idx) => (
+                    <div key={item.id || idx} className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2.5">
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-200/70 gap-2">
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={(e) => handleUpdateAdditionalPhoto(idx, { title: e.target.value })}
+                          placeholder={`Photo Title (e.g. DCDU Panel)`}
+                          className="text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded px-2 py-1 flex-1 font-sans focus:outline-none focus:ring-1 focus:ring-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdditionalPhoto(idx)}
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 p-1 rounded flex items-center space-x-1 transition-colors cursor-pointer shrink-0"
+                          title="Remove this photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="text-[11px]">Remove</span>
+                        </button>
+                      </div>
+                      <ImageInputWidget
+                        label={item.title || `Attachment Photo #${idx + 1}`}
+                        subLabel="Upload file or paste screenshot (Ctrl+V)"
+                        imageDataUrl={item.dataUrl || undefined}
+                        onChange={(dataUrl) => handleUpdateAdditionalPhoto(idx, { dataUrl: dataUrl || '' })}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddAdditionalPhoto}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>+ Add Another Photo Attachment</span>
                   </button>
                 </div>
               </div>

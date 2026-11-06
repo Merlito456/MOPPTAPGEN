@@ -4,7 +4,7 @@ import { X, Building2, Cable, Check, FileCheck, Layers } from 'lucide-react';
 interface FormatComparisonModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectSample: (type: 'ONE_TSSR' | 'ERICSSON_FTTH') => void;
+  onSelectSample: (type: 'ONE_TSSR' | 'ERICSSON_FTTH' | 'ERICSSON_2RS') => void;
 }
 
 export const FormatComparisonModal: React.FC<FormatComparisonModalProps> = ({
@@ -117,6 +117,42 @@ export const FormatComparisonModal: React.FC<FormatComparisonModalProps> = ({
               <li><strong>Approver:</strong> Liam Walter Meflores (Department / Division Head)</li>
               <li><strong>Implementation:</strong> November 9 - December 9, 2026 08:00AM-08:00PM</li>
             </ul>
+          </div>
+
+          {/* Format 3: 2 RS (Separate Rectifiers) Configuration */}
+          <div className="border border-indigo-200 bg-indigo-50/30 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-indigo-800 bg-indigo-100 px-2.5 py-1 rounded text-xs flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                Special Setup · Site with 2 Rectifiers (RS1 & RS2 Separate Tapping)
+              </span>
+              <button
+                onClick={() => {
+                  onSelectSample('ERICSSON_2RS');
+                  onClose();
+                }}
+                className="font-bold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1"
+              >
+                <span>Load 2 RS Sample</span> →
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                <Cable className="w-4 h-4 text-indigo-700" />
+                2 RS Setup: RS1 (MAIN) + RS2 (RDNT)
+              </h3>
+              <p className="text-slate-600">
+                Demonstrates automatic 2 RS detection, dual rectifier documentation in MOP headers, and multiple photo attachments per rectifier.
+              </p>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-indigo-100 font-mono space-y-1 text-slate-800">
+              <div><span className="text-slate-400">Total Rectifiers:</span> 2 Rectifiers on Site (RS1 & RS2)</div>
+              <div><span className="text-slate-400">Tapping Mode:</span> Main + RDNT – Separate Rectifiers</div>
+              <div><span className="text-slate-400">RS1 Tapping:</span> Eltek Flatpack 1 (MAIN: F16, 16A)</div>
+              <div><span className="text-slate-400">RS2 Tapping:</span> Eltek Flatpack 2 (RDNT: L6, 16A)</div>
+            </div>
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">

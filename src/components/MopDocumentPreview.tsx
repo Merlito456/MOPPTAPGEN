@@ -310,78 +310,190 @@ Implementation Window: ${targetDatetime}
           </table>
         </div>
 
-        {/* ATTACHED RECTIFIER PHOTOS IN MOP */}
+        {/* ATTACHED RECTIFIER PHOTOS IN MOP (MULTIPLE PHOTOS SUPPORT) */}
         <div className="space-y-3 pt-2">
-          <h3 className="font-bold text-slate-900 text-xs uppercase">ATTACHED RECTIFIER LOAD & SITE PHOTOS IN MOP</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* RS1 Load */}
-            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-1.5">
-              <span className="font-bold text-slate-800 text-[11px] block">RS1 Load Schedule Image</span>
-              {rs1.load_img_dataUrl ? (
-                <img
-                  src={rs1.load_img_dataUrl}
-                  alt="RS1 Load Schedule"
-                  className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
-                />
-              ) : (
-                <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
-                  <ImageIcon className="w-5 h-5 mb-1" />
-                  <span>No load schedule attached</span>
-                </div>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1.5">
+              <span>ATTACHED RECTIFIER LOAD & SITE PHOTOS IN MOP</span>
+              {specs.total_rectifiers === 2 && (
+                <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-full border border-purple-200">
+                  2 RS Documentation
+                </span>
               )}
-            </div>
+            </h3>
+          </div>
 
-            {/* RS1 Existing */}
-            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-1.5">
-              <span className="font-bold text-slate-800 text-[11px] block">RS1 Existing Rectifier Photo</span>
-              {rs1.existing_img_dataUrl ? (
-                <img
-                  src={rs1.existing_img_dataUrl}
-                  alt="RS1 Existing Rectifier"
-                  className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
-                />
-              ) : (
-                <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
-                  <ImageIcon className="w-5 h-5 mb-1" />
-                  <span>No rectifier photo attached</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* RS1 Load Schedule Images */}
+            {(() => {
+              const imgs = (rs1.load_images && rs1.load_images.length > 0)
+                ? rs1.load_images.filter(Boolean)
+                : (rs1.load_img_dataUrl ? [rs1.load_img_dataUrl] : []);
+              return (
+                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-[11px] block">
+                      RS1 Load Schedule ({imgs.length} Photo{imgs.length > 1 ? 's' : ''})
+                    </span>
+                    <span className="text-[10px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded font-semibold">
+                      RS1: {rs1.name}
+                    </span>
+                  </div>
+                  {imgs.length > 0 ? (
+                    <div className="space-y-2">
+                      {imgs.map((url, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={url}
+                            alt={`RS1 Load Schedule ${idx + 1}`}
+                            className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
+                          />
+                          {imgs.length > 1 && (
+                            <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/80 text-white px-1.5 py-0.5 rounded">
+                              Photo {idx + 1} of {imgs.length}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
+                      <ImageIcon className="w-5 h-5 mb-1" />
+                      <span>No load schedule attached</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
+
+            {/* RS1 Existing Rectifier Photos */}
+            {(() => {
+              const imgs = (rs1.existing_images && rs1.existing_images.length > 0)
+                ? rs1.existing_images.filter(Boolean)
+                : (rs1.existing_img_dataUrl ? [rs1.existing_img_dataUrl] : []);
+              return (
+                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-[11px] block">
+                      RS1 Existing Rectifier ({imgs.length} Photo{imgs.length > 1 ? 's' : ''})
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
+                      Breaker: {rs1.load}
+                    </span>
+                  </div>
+                  {imgs.length > 0 ? (
+                    <div className="space-y-2">
+                      {imgs.map((url, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={url}
+                            alt={`RS1 Existing Rectifier ${idx + 1}`}
+                            className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
+                          />
+                          {imgs.length > 1 && (
+                            <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/80 text-white px-1.5 py-0.5 rounded">
+                              Photo {idx + 1} of {imgs.length}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
+                      <ImageIcon className="w-5 h-5 mb-1" />
+                      <span>No rectifier photo attached</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* RS2 Photos if 2 rectifiers */}
             {specs.total_rectifiers >= 2 && rs2 && (
               <>
-                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-1.5">
-                  <span className="font-bold text-slate-800 text-[11px] block">RS2 Load Schedule Image</span>
-                  {rs2.load_img_dataUrl ? (
-                    <img
-                      src={rs2.load_img_dataUrl}
-                      alt="RS2 Load Schedule"
-                      className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
-                    />
-                  ) : (
-                    <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
-                      <ImageIcon className="w-5 h-5 mb-1" />
-                      <span>No RS2 load schedule attached</span>
+                {/* RS2 Load Schedule */}
+                {(() => {
+                  const imgs = (rs2.load_images && rs2.load_images.length > 0)
+                    ? rs2.load_images.filter(Boolean)
+                    : (rs2.load_img_dataUrl ? [rs2.load_img_dataUrl] : []);
+                  return (
+                    <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-purple-900 text-[11px] block">
+                          RS2 Load Schedule ({imgs.length} Photo{imgs.length > 1 ? 's' : ''})
+                        </span>
+                        <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded font-semibold">
+                          RS2: {rs2.name}
+                        </span>
+                      </div>
+                      {imgs.length > 0 ? (
+                        <div className="space-y-2">
+                          {imgs.map((url, idx) => (
+                            <div key={idx} className="relative">
+                              <img
+                                src={url}
+                                alt={`RS2 Load Schedule ${idx + 1}`}
+                                className="w-full h-36 object-contain rounded border border-purple-300 bg-white"
+                              />
+                              {imgs.length > 1 && (
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/80 text-white px-1.5 py-0.5 rounded">
+                                  Photo {idx + 1} of {imgs.length}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-28 border border-dashed border-purple-300 rounded flex flex-col items-center justify-center text-purple-400 text-[11px]">
+                          <ImageIcon className="w-5 h-5 mb-1" />
+                          <span>No RS2 load schedule attached</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
-                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-1.5">
-                  <span className="font-bold text-slate-800 text-[11px] block">RS2 Existing Rectifier Photo</span>
-                  {rs2.existing_img_dataUrl ? (
-                    <img
-                      src={rs2.existing_img_dataUrl}
-                      alt="RS2 Existing Rectifier"
-                      className="w-full h-36 object-contain rounded border border-slate-300 bg-white"
-                    />
-                  ) : (
-                    <div className="h-28 border border-dashed border-slate-300 rounded flex flex-col items-center justify-center text-slate-400 text-[11px]">
-                      <ImageIcon className="w-5 h-5 mb-1" />
-                      <span>No RS2 photo attached</span>
+                {/* RS2 Existing Rectifier */}
+                {(() => {
+                  const imgs = (rs2.existing_images && rs2.existing_images.length > 0)
+                    ? rs2.existing_images.filter(Boolean)
+                    : (rs2.existing_img_dataUrl ? [rs2.existing_img_dataUrl] : []);
+                  return (
+                    <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-purple-900 text-[11px] block">
+                          RS2 Existing Rectifier ({imgs.length} Photo{imgs.length > 1 ? 's' : ''})
+                        </span>
+                        <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded">
+                          {specs.tapping_mode === 'Main + RDNT – Separate Rectifiers' ? `RDNT: ${rs2.load}` : 'On Site'}
+                        </span>
+                      </div>
+                      {imgs.length > 0 ? (
+                        <div className="space-y-2">
+                          {imgs.map((url, idx) => (
+                            <div key={idx} className="relative">
+                              <img
+                                src={url}
+                                alt={`RS2 Existing Rectifier ${idx + 1}`}
+                                className="w-full h-36 object-contain rounded border border-purple-300 bg-white"
+                              />
+                              {imgs.length > 1 && (
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/80 text-white px-1.5 py-0.5 rounded">
+                                  Photo {idx + 1} of {imgs.length}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-28 border border-dashed border-purple-300 rounded flex flex-col items-center justify-center text-purple-400 text-[11px]">
+                          <ImageIcon className="w-5 h-5 mb-1" />
+                          <span>No RS2 photo attached</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -425,6 +537,39 @@ Implementation Window: ${targetDatetime}
             </div>
           )}
         </div>
+
+        {/* ADDITIONAL PHOTO ATTACHMENTS (Whenever Provided) */}
+        {specs.additional_photos && specs.additional_photos.filter((p) => Boolean(p.dataUrl)).length > 0 && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                ADDITIONAL PHOTO ATTACHMENTS (SITE & SURVEY)
+              </h3>
+              <span className="text-[11px] text-slate-500 font-medium">
+                {specs.additional_photos.filter((p) => Boolean(p.dataUrl)).length} photo(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {specs.additional_photos.filter((p) => Boolean(p.dataUrl)).map((item, idx) => (
+                <div key={item.id || idx} className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-1.5">
+                  <span className="font-bold text-slate-800 text-[11px] block">
+                    {item.title || `Site Photo #${idx + 1}`}
+                  </span>
+                  <img
+                    src={item.dataUrl}
+                    alt={item.title || `Site Photo ${idx + 1}`}
+                    className="w-full h-40 object-contain rounded border border-slate-300 bg-white"
+                  />
+                  <span className="text-[10px] text-slate-500 italic block text-center">
+                    Attachment #{idx + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Section 14: SUPPORTING DOCUMENTS (Approved TSSR) */}
         <div className="space-y-2">

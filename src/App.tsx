@@ -26,9 +26,36 @@ export default function App() {
     setCurrentStep(1);
   };
 
-  const handleSelectSampleFromModal = (type: 'ONE_TSSR' | 'ERICSSON_FTTH') => {
+  const handleSelectSampleFromModal = (type: 'ONE_TSSR' | 'ERICSSON_FTTH' | 'ERICSSON_2RS') => {
     if (type === 'ONE_TSSR') {
       setSpecs(JSON.parse(JSON.stringify(SAMPLE_ONE_TSSR)));
+    } else if (type === 'ERICSSON_2RS') {
+      const s2 = JSON.parse(JSON.stringify(SAMPLE_ERICSSON_FTTH));
+      s2.total_rectifiers = 2;
+      s2.detected_2_rs = true;
+      s2.tapping_mode = 'Main + RDNT – Separate Rectifiers';
+      s2.rs_detection_notes = 'Detected 2 Rectifiers on site (RS1 & RS2) with Separate Rectifier tapping';
+      s2.rs_entries = [
+        {
+          name: 'Eltek Flatpack 1',
+          load: 'F16',
+          ampere: '16A',
+          rdnt_load: '',
+          rdnt_ampere: '',
+          load_images: [],
+          existing_images: [],
+        },
+        {
+          name: 'Eltek Flatpack 2',
+          load: 'L6',
+          ampere: '16A',
+          rdnt_load: '',
+          rdnt_ampere: '',
+          load_images: [],
+          existing_images: [],
+        },
+      ];
+      setSpecs(s2);
     } else {
       setSpecs(JSON.parse(JSON.stringify(SAMPLE_ERICSSON_FTTH)));
     }
